@@ -11,6 +11,17 @@ Forge 1.20.1 port of Water Physics Overhaul.
 ## Related Repositories
 
 - [`SKDS-Core-1.20.1`](https://github.com/dev-willbird1936/SKDS-Core-1.20.1)
+- [`WPO-Environmental-Expansion-1.20.1`](https://github.com/dev-willbird1936/WPO-Environmental-Expansion-1.20.1)
+- [`WPO-Hydraulic-Utilities-1.20.1`](https://github.com/dev-willbird1936/WPO-Hydraulic-Utilities-1.20.1)
+
+## Add-ons
+
+Two original add-on mods are available for the 1.20.1 port:
+
+- `WPO Environmental Expansion` adds rain collection and outdoor water handling with blocks such as rain barrels, cisterns, roof collectors, ground basins, and intake grate collectors.
+- `WPO Hydraulic Utilities` adds pumps, drains, valves, grates, watertight doors, watertight trapdoors, and creative fluid sources for setup and testing.
+
+For external fluid transport with the add-ons, Pipez is the recommended companion pipe mod.
 
 ## Build
 
