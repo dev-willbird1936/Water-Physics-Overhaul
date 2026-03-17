@@ -1,51 +1,57 @@
 package net.skds.wpo.fluidphysics;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.IWaterLoggable;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.server.ServerWorld;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.SimpleWaterloggedBlock;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.skds.wpo.WPOConfig;
 import net.skds.wpo.fluidphysics.FFluidStatic.FluidDisplacer2;
+import net.skds.wpo.fluiddata.WPOFluidChunkStorage;
 import net.skds.wpo.util.interfaces.IBaseWL;
 
 public class TurboDisplacer {
 
 
-	public static void markForDisplace(ServerWorld w, BlockPos pos, BlockState oldState, BlockState newState) {
-		//World w = (World) w;
+	public static void markForDisplace(ServerLevel serverLevel, BlockPos pos, BlockState oldBS, BlockState newBS) {
+		//World serverLevel = (World) serverLevel;
 		//BlockPos pos = e.getPos();
-		//BlockState oldState = w.getBlockState(pos);
-		FluidState fs = oldState.getFluidState();
-		//FluidState nfs = newState.getFluidState();
-		Fluid f = fs.getFluid();
-		//BlockState newState = e.getPlacedBlock();
-		Block nb = newState.getBlock();
-		int level = fs.getLevel();
-		//int nlevel = nfs.getLevel();
-		if (fs.isEmpty()) {
+		//BlockState oldBS = serverLevel.getBlockState(pos);
+		FluidState oldFS = oldBS.getFluidState();
+//		FluidState newFS = newBS.getFluidState();
+		Fluid oldFluid = oldFS.getType();
+		//BlockState newBS = e.getPlacedBlock();
+		Block newBlock = newBS.getBlock();
+		int oldLevel = oldFS.getAmount();
+//		int newLevel = newFS.getLevel();
+		if (oldFS.isEmpty()) {
 			return;
 		}
-		if (nb instanceof IWaterLoggable && f.isEquivalentTo(Fluids.WATER)) {
-			if (level == WPOConfig.MAX_FLUID_LEVEL) {
-				w.setBlockState(pos, FFluidStatic.getUpdatedState(newState, level, f), 3);
+		if (newBlock instanceof SimpleWaterloggedBlock && oldFluid.isSame(Fluids.WATER)) {
+			if (oldLevel == WPOConfig.MAX_FLUID_LEVEL) {
+				BlockState updatedState = FFluidStatic.getUpdatedState(newBS, oldLevel, oldFluid);
+				serverLevel.setBlockAndUpdate(pos, updatedState);
+				WPOFluidChunkStorage.mirrorBlockState(serverLevel, pos, updatedState);
 				return;
-			} else if (nb instanceof IBaseWL) {				
-				w.setBlockState(pos, FFluidStatic.getUpdatedState(newState, level, f), 3);
+			} else if (newBlock instanceof IBaseWL) {
+				BlockState updatedState = FFluidStatic.getUpdatedState(newBS, oldLevel, oldFluid);
+				serverLevel.setBlockAndUpdate(pos, updatedState);
+				WPOFluidChunkStorage.mirrorBlockState(serverLevel, pos, updatedState);
 				return;
 			}
 		}
 		
-		if (!FFluidStatic.canOnlyFullCube(newState) && nb instanceof IBaseWL && f.isEquivalentTo(Fluids.WATER)) {
-			newState = FFluidStatic.getUpdatedState(newState, fs.getLevel(), Fluids.WATER);
-			w.setBlockState(pos, newState);
+		if (!FFluidStatic.canOnlyFullCube(newBS) && newBlock instanceof IBaseWL && oldFluid.isSame(Fluids.WATER)) {
+			newBS = FFluidStatic.getUpdatedState(newBS, oldFS.getAmount(), Fluids.WATER);
+			serverLevel.setBlockAndUpdate(pos, newBS);
+			WPOFluidChunkStorage.mirrorBlockState(serverLevel, pos, newBS);
 			return;
 		}
 
-		FluidDisplacer2 displacer = new FluidDisplacer2(w, oldState);
+		FluidDisplacer2 displacer = new FluidDisplacer2(serverLevel, oldBS);
 		FFluidStatic.iterateFluidWay(10, pos, displacer);
 	}
     

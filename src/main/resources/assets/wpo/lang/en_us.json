@@ -1,6 +1,10 @@
 {
 	"skds_core": "SKDS Core",
 	"wpo": "Water Physics Overhaul",
+	"wpo.config.performancePreset": "Performance Preset",
+	"wpo.config.setMaxEqualizeDistance": "Manual Equalize Distance",
+	"wpo.config.setMaxSlidingDistance": "Manual Sliding Distance",
+	"wpo.config.setMaxBucketDistance": "Bucket Reach Distance",
 
 
 	"block.wpo.pipe": "Pipe",

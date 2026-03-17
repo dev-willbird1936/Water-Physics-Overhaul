@@ -1,0 +1,27 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+        maven {
+            name = 'Sponge'
+            url = 'https://repo.spongepowered.org/repository/maven-public/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'Water-Physics-Overhaul-1.20.1'
+
+def skdsDir = file('../SKDS-Core-1.20.1')
+if (!skdsDir.isDirectory()) {
+    throw new GradleException('Clone SKDS-Core-1.20.1 next to this repository at ../SKDS-Core-1.20.1 before building Water Physics Overhaul.')
+}
+
+include 'skds_core_1.20.1'
+project(':skds_core_1.20.1').projectDir = skdsDir

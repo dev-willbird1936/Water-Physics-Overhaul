@@ -1,16 +1,8 @@
 package net.skds.wpo.fluidphysics;
 
-import java.util.Comparator;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentSkipListSet;
-
-import io.netty.util.internal.ConcurrentSet;
-import net.minecraft.fluid.FlowingFluid;
-import net.minecraft.fluid.Fluid;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.server.ServerTickList;
-import net.minecraft.world.server.ServerWorld;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.material.FlowingFluid;
 import net.skds.core.Events;
 import net.skds.core.api.IWWS;
 import net.skds.core.api.IWWSG;
@@ -18,13 +10,22 @@ import net.skds.core.api.multithreading.ITaskRunnable;
 import net.skds.core.multithreading.MTHooks;
 import net.skds.wpo.util.TaskBlocker;
 
+import java.util.Comparator;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListSet;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.skds.wpo.fluiddata.WPOFluidChunkStorage;
+
 public class WorldWorkSet implements IWWS {
 	public final IWWSG glob;
-	public final ServerWorld world;
+	public final ServerLevel world;
 
-	public ConcurrentSet<Long> excludedTasks = new ConcurrentSet<>();
+	public ConcurrentHashMap.KeySetView<Long, Boolean> excludedTasks = ConcurrentHashMap.newKeySet();
+	public ConcurrentHashMap.KeySetView<Long, Boolean> updatedChunks = ConcurrentHashMap.newKeySet();
 
-	private ConcurrentSet<Long> lockedEq = new ConcurrentSet<>();
+	private ConcurrentHashMap.KeySetView<Long, Boolean> lockedEq = ConcurrentHashMap.newKeySet();
 	private ConcurrentHashMap<Long, Integer> ntt = new ConcurrentHashMap<>();
 	private static final Comparator<FluidTask> comp = new Comparator<FluidTask>() {
 		@Override
@@ -43,8 +44,8 @@ public class WorldWorkSet implements IWWS {
 	private static ConcurrentSkipListSet<FluidTask> TASKS = new ConcurrentSkipListSet<>(comp);
 	private static ConcurrentLinkedQueue<FluidTask> DELAYED_TASKS = new ConcurrentLinkedQueue<>();
 
-	public WorldWorkSet(ServerWorld w, IWWSG owner) {
-		world = (ServerWorld) w;
+	public WorldWorkSet(ServerLevel w, IWWSG owner) {
+		world = (ServerLevel) w;
 		glob = owner;
 	}
 
@@ -116,6 +117,30 @@ public class WorldWorkSet implements IWWS {
 		TASKS.add(task);
 	}
 
+	public static void runPendingTasks() {
+		FluidTask task;
+		while ((task = nextTaskSingleThread()) != null) {
+			task.run();
+		}
+	}
+
+	private static FluidTask nextTaskSingleThread() {
+		if (!(MTHooks.COUNTS > 0 || Events.getRemainingTickTimeMilis() > MTHooks.TIME)) {
+			return null;
+		}
+		MTHooks.COUNTS--;
+		FluidTask delayedTask = DELAYED_TASKS.poll();
+		if (delayedTask != null) {
+			delayedTask.worker = -1;
+			return delayedTask;
+		}
+		FluidTask task = TASKS.pollFirst();
+		if (task != null) {
+			task.worker = -1;
+		}
+		return task;
+	}
+
 	// =========== Override ==========
 
 	@Override
@@ -127,26 +152,22 @@ public class WorldWorkSet implements IWWS {
 
 	@Override
 	public void tickOut() {
-		//if (world.canSeeSky(new BlockPos(0, 255, 0))) {
-		//	long t = System.currentTimeMillis() - net.skds.wpo.Events.t - 4;
-		//	if (t > 0)
-		//		System.out.println(net.skds.wpo.Events.c / t);
-		//}
+		for (long chunkKey : updatedChunks) {
+			ChunkPos chunkPos = new ChunkPos(chunkKey);
+			LevelChunk chunk = world.getChunkSource().getChunkNow(chunkPos.x, chunkPos.z);
+			if (chunk != null) {
+				WPOFluidChunkStorage.sendChunkToTracking(chunk);
+			}
+		}
+		updatedChunks.clear();
 	}
 
 	@Override
 	public void close() {
 		lockedEq.clear();
-		ServerTickList<Fluid> stl = world.getPendingFluidTicks();
-		ntt.forEach((lp, t) -> {
-			BlockPos pos = BlockPos.fromLong(lp);
-			stl.scheduleTick(pos, world.getFluidState(pos).getFluid(), t + 2);
-		});
 		ntt.clear();
-		TASKS.forEach(t -> t.revoke(world));
-		TASKS.clear();
-		DELAYED_TASKS.forEach(t -> t.revoke(world));
-		DELAYED_TASKS.clear();
+		TASKS.removeIf(t -> t.owner == this);
+		DELAYED_TASKS.removeIf(t -> t.owner == this);
 	}
 
 	@Override

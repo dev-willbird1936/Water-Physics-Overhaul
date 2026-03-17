@@ -4,16 +4,15 @@ import static net.skds.wpo.WPO.LOGGER;
 
 import java.util.Set;
 
-import net.minecraft.block.Block;
+import net.minecraft.world.level.block.Block;
 import net.minecraftforge.registries.ForgeRegistries;
-import net.skds.core.api.IBlockExtended;
 import net.skds.core.util.CustomBlockPars;
 
 public class ParsApplier {
 
 	public static void applyFluidPars(ParsGroup<FluidPars> FG) {
 		for (Block b : FG.blocks) {
-			CustomBlockPars pars = ((IBlockExtended) b).getCustomBlockPars();
+			CustomBlockPars pars = CustomBlockPars.get(b);
 			pars.put(FluidPars.class, FG.param);
 		}
 	}
@@ -27,7 +26,7 @@ public class ParsApplier {
 		LOGGER.info("Cleaning blocks...");
 
 		ForgeRegistries.BLOCKS.getValues().forEach(block -> {
-			((IBlockExtended) block).setCustomBlockPars(new CustomBlockPars());
+			CustomBlockPars.set(block, new CustomBlockPars());
 		});
 
 		LOGGER.info("Reading fluid configs...");

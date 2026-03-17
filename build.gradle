@@ -1,61 +1,120 @@
 buildscript {
     repositories {
-        jcenter()
-        maven { 
-            name = 'forge'
-            url = 'https://files.minecraftforge.net/maven' 
-        }
         maven {
-           name = 'sponge'
-           url = 'https://repo.spongepowered.org/maven'
+            name = 'Sponge'
+            url = 'https://repo.spongepowered.org/repository/maven-public/'
         }
-        jcenter()
         mavenCentral()
     }
     dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '3.+', changing: true
-        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+        classpath 'org.spongepowered:mixingradle:0.7.+'
     }
 }
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'org.spongepowered.mixin'
 
-version = '0.1.1'
-group = 'net.skds.wpo'
-archivesBaseName = 'water_physics_overhaul'
-
-sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
-
-println('Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
-minecraft {
-
-    mappings channel: 'snapshot', version: '20201028-1.16.3'
-
+plugins {
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
 
-configurations {
-    embed
-    compile.extendsFrom(embed)
+apply plugin: 'org.spongepowered.mixin'
+
+evaluationDependsOn(':skds_core_1.20.1')
+
+version = project.findProperty('wpo_mod_version')
+group = 'net.skds.wpo'
+
+base {
+    archivesName = "water_physics_overhaul-${minecraft_version}"
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                wpo {
+                    source sourceSets.main
+                }
+                skds_core {
+                    source project(':skds_core_1.20.1').sourceSets.main
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', 'wpo'
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', 'wpo'
+            args '--nogui'
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', 'wpo'
+        }
+    }
+}
+
+repositories {
+    maven {
+        name = 'Sponge'
+        url = 'https://repo.spongepowered.org/repository/maven-public/'
+    }
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.16.5-36.0.14'
-    embed('org.spongepowered:mixin:0.8.2') { transitive = false }
-    compile fg.deobf(fileTree(dir: 'lib', include: ['*.jar']))
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':skds_core_1.20.1')
+    compileOnly 'org.spongepowered:mixin:0.8.5'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
 
-jar {
-    manifest {
-        attributes([
-            "MixinConfigs": "mixins.wpo.json",
-            "Implementation-Title": project.name,
-            "Implementation-Version": "${version}",
-        ])
+tasks.named('processResources', ProcessResources).configure {
+    def replaceProperties = [
+        minecraft_version: minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        forge_version: forge_version,
+        forge_version_range: forge_version_range,
+        loader_version_range: loader_version_range,
+        mod_id: 'wpo',
+        mod_name: 'Water Physics Overhaul',
+        mod_version: version,
+        mod_license: 'All Rights Reserved',
+        mod_authors: project.findProperty('project_public_author'),
+        mod_description: 'Dynamic fluid flow overhaul for Forge 1.20.1. This workspace currently ports the fluid-engine vertical slice first.',
+        skds_core_version_range: "[${project.findProperty('skds_mod_version')},)"
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties
     }
 }
 
-//jar.finalizedBy('reobfJar') 
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+            'MixinConfigs': 'mixins.wpo.json',
+            'Specification-Title': 'wpo',
+            'Specification-Vendor': project.findProperty('project_public_vendor'),
+            'Specification-Version': '1',
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version,
+            'Implementation-Vendor': project.findProperty('project_public_vendor')
+        ])
+    }
+    finalizedBy 'reobfJar'
+}
 
 mixin {
     add sourceSets.main, 'mixins.wpo.refmap.json'
+    config 'mixins.wpo.json'
+    config 'mixins.skds_core.json'
 }

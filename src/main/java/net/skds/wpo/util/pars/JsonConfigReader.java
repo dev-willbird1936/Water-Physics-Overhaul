@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,12 +25,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.stream.JsonReader;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.tags.ITag;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.registries.*;
+import net.minecraftforge.registries.tags.ITag;
+import net.minecraftforge.registries.tags.ITagManager;
 import net.skds.wpo.WPO;
 import net.skds.wpo.util.pars.ParsApplier.ParsGroup;
 
@@ -37,7 +39,7 @@ public class JsonConfigReader {
 
 	File fileF;
 
-	File dir = new File(System.getProperty("user.dir") + "\\config\\" + WPO.MOD_ID);
+	File dir = Paths.get(System.getProperty("user.dir"), "config", WPO.MOD_ID).toFile();
 	Set<Map.Entry<String, JsonElement>> blockListSet = new HashSet<>();
 	Set<Map.Entry<String, JsonElement>> propertyListSet = new HashSet<>();
 	Map<String, JsonElement> propertyListMap = new HashMap<>();
@@ -83,7 +85,7 @@ public class JsonConfigReader {
 			}
 		}
 		BufferedInputStream is = new BufferedInputStream(
-				WPO.class.getClassLoader().getResourceAsStream(WPO.MOD_ID + "\\special\\fluids.json"));
+				WPO.class.getClassLoader().getResourceAsStream(Paths.get(WPO.MOD_ID, "special", "fluids.json").toString()));
 		boolean ex = fileF.exists();
 		if (ex) {
 			fileF.delete();
@@ -177,19 +179,25 @@ public class JsonConfigReader {
 		for (String id : list) {
 			if (id.charAt(0) == '#') {
 				id = id.substring(1);
-				ITag<Block> tag = BlockTags.getCollection().get(new ResourceLocation(id));
-				if (tag == null) {
-					LOGGER.error("Block tag \"" + id + "\" does not exist!");
+				ITagManager<Block> tagManager = ForgeRegistries.BLOCKS.tags();
+				if (tagManager == null) {
+					LOGGER.error("Forge registry \"" + ForgeRegistries.BLOCKS + "\" does not support tags!");
 					continue;
 				}
-				blocks.addAll(tag.getAllElements());
-				continue;
-			}
-			Block block = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(id));
-			if (block != null && block != Blocks.AIR) {
-				blocks.add(block);
+				TagKey<Block> tagKey = tagManager.createTagKey(new ResourceLocation(id));
+				ITag<Block> tag = tagManager.getTag(tagKey);
+//				if (tag == null) {
+//					LOGGER.error("Block tag \"" + id + "\" does not exist!");
+//					continue;
+//				}
+				blocks.addAll(tag.stream().toList());
 			} else {
-				LOGGER.error("Block \"" + id + "\" does not exist!");
+				Block block = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(id));
+				if (block != null && block != Blocks.AIR) {
+					blocks.add(block);
+				} else {
+					LOGGER.error("Block \"" + id + "\" does not exist!");
+				}
 			}
 		}
 		return blocks;
@@ -201,19 +209,25 @@ public class JsonConfigReader {
 			String id = je.getAsString();
 			if (id.charAt(0) == '#') {
 				id = id.substring(1);
-				ITag<Block> tag = BlockTags.getCollection().get(new ResourceLocation(id));
-				if (tag == null) {
-					LOGGER.error("Block tag \"" + id + "\" does not exist!");
+				ITagManager<Block> tagManager = ForgeRegistries.BLOCKS.tags();
+				if (tagManager == null) {
+					LOGGER.error("Forge registry \"" + ForgeRegistries.BLOCKS + "\" does not support tags!");
 					continue;
 				}
-				blocks.addAll(tag.getAllElements());
-				continue;
-			}
-			Block block = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(id));
-			if (block != null && block != Blocks.AIR) {
-				blocks.add(block);
+				TagKey<Block> tagKey = tagManager.createTagKey(new ResourceLocation(id));
+				ITag<Block> tag = tagManager.getTag(tagKey);
+//				if (tag == null) {
+//					LOGGER.error("Block tag \"" + id + "\" does not exist!");
+//					continue;
+//				}
+				blocks.addAll(tag.stream().toList());
 			} else {
-				LOGGER.error("Block \"" + id + "\" does not exist!");
+				Block block = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(id));
+				if (block != null && block != Blocks.AIR) {
+					blocks.add(block);
+				} else {
+					LOGGER.error("Block \"" + id + "\" does not exist!");
+				}
 			}
 		}
 		return blocks;
