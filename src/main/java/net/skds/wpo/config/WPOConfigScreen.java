@@ -49,11 +49,14 @@ public class WPOConfigScreen extends Screen {
                 Component.translatable("wpo.config.setMaxBucketDistance"),
                 String.valueOf(WPOConfig.getMaxBucketDist()));
 
+        this.addRenderableWidget(Button.builder(Component.literal("Defaults"), button -> loadDefaults())
+                .bounds(centerX - 154, this.height - 28, 100, 20)
+                .build());
         this.addRenderableWidget(Button.builder(Component.literal("Save"), button -> saveAndClose())
-                .bounds(centerX - 154, this.height - 28, 150, 20)
+                .bounds(centerX - 50, this.height - 28, 100, 20)
                 .build());
         this.addRenderableWidget(Button.builder(CommonComponents.GUI_CANCEL, button -> onClose())
-                .bounds(centerX + 4, this.height - 28, 150, 20)
+                .bounds(centerX + 54, this.height - 28, 100, 20)
                 .build());
 
         updateManualFieldState();
@@ -71,6 +74,15 @@ public class WPOConfigScreen extends Screen {
         boolean custom = presetButton.getValue() == PerformancePreset.CUSTOM;
         maxEqDistBox.active = custom;
         maxSlideDistBox.active = custom;
+    }
+
+    private void loadDefaults() {
+        presetButton.setValue(WPOConfig.COMMON.performancePreset.getDefault());
+        maxEqDistBox.setValue(String.valueOf(WPOConfig.COMMON.maxEqDist.getDefault()));
+        maxSlideDistBox.setValue(String.valueOf(WPOConfig.COMMON.maxSlideDist.getDefault()));
+        maxBucketDistBox.setValue(String.valueOf(WPOConfig.COMMON.maxBucketDist.getDefault()));
+        updateManualFieldState();
+        statusMessage = Component.literal("Defaults loaded. Press Save to apply.");
     }
 
     private void saveAndClose() {
