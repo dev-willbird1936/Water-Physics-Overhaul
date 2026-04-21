@@ -1,3 +1,5 @@
+import java.util.Properties
+
 buildscript {
     repositories {
         maven {
@@ -17,9 +19,23 @@ plugins {
 
 apply plugin: 'org.spongepowered.mixin'
 
-evaluationDependsOn(':skds_core_1.20.1')
+def selectedMcVersion = (findProperty('mcVersion') ?: findProperty('default_mc_version') ?: '1.20.1').toString()
+def versionPropsFile = file("versions/${selectedMcVersion}.properties")
+if (!versionPropsFile.isFile()) {
+    throw new GradleException("Missing version config for ${selectedMcVersion}: ${versionPropsFile}")
+}
 
-version = project.findProperty('wpo_mod_version')
+def versionProps = new Properties()
+versionPropsFile.withInputStream { versionProps.load(it) }
+versionProps.each { key, value ->
+    ext.set(key.toString(), value.toString())
+}
+
+def releaseOutputDir = rootProject.file("../../releases/Water-Physics-Overhaul/${selectedMcVersion}")
+
+evaluationDependsOn(':skds_core')
+
+version = wpo_mod_version
 group = 'net.skds.wpo'
 
 base {
@@ -43,7 +59,7 @@ minecraft {
                     source sourceSets.main
                 }
                 skds_core {
-                    source project(':skds_core_1.20.1').sourceSets.main
+                    source project(':skds_core').sourceSets.main
                 }
             }
         }
@@ -72,7 +88,7 @@ repositories {
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    implementation project(':skds_core_1.20.1')
+    implementation project(':skds_core')
     compileOnly 'org.spongepowered:mixin:0.8.5'
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
@@ -90,7 +106,7 @@ tasks.named('processResources', ProcessResources).configure {
         mod_license: 'All Rights Reserved',
         mod_authors: project.findProperty('project_public_author'),
         mod_description: 'Dynamic fluid flow overhaul for Forge 1.20.1. This workspace currently ports the fluid-engine vertical slice first.',
-        skds_core_version_range: "[${project.findProperty('skds_mod_version')},)"
+        skds_core_version_range: "[${skds_mod_version},)"
     ]
     inputs.properties replaceProperties
     filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
@@ -111,6 +127,13 @@ tasks.named('jar', Jar).configure {
         ])
     }
     finalizedBy 'reobfJar'
+}
+
+tasks.register('stageRelease', Copy) {
+    dependsOn tasks.named('build')
+    from(layout.buildDirectory.dir('libs'))
+    include "${base.archivesName.get()}-${project.version}.jar"
+    into releaseOutputDir
 }
 
 mixin {
