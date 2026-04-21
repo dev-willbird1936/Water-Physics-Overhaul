@@ -8,23 +8,19 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraftforge.client.ConfigScreenHandler;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.IExtensionPoint;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.network.NetworkRegistry;
-import net.skds.wpo.client.ClientEvents;
-import net.skds.wpo.config.WPOConfigScreen;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.common.NeoForge;
 import net.skds.wpo.network.PacketHandler;
 import net.skds.wpo.registry.BlockStateProps;
 import net.skds.wpo.registry.Entities;
 import net.skds.wpo.registry.FBlocks;
 import net.skds.wpo.registry.Items;
+import net.skds.wpo.registry.WPODataComponents;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(WPO.MOD_ID)
@@ -37,33 +33,25 @@ public class WPO
 
     public static Events EVENTS = new Events();
 
-    public WPO() {
-        ModLoadingContext.get().registerExtensionPoint(IExtensionPoint.DisplayTest.class, () -> new IExtensionPoint.DisplayTest(() -> "ANY", (remote, isServer) -> true));
+    public WPO(IEventBus modBus, ModContainer container) {
+        modBus.addListener(this::setup);
 
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::doClientStuff);
-
-        // Register ourselves for server and other game events we are interested in
-        MinecraftForge.EVENT_BUS.register(EVENTS);
-        MinecraftForge.EVENT_BUS.register(this);
+        NeoForge.EVENT_BUS.register(EVENTS);
       
-        WPOConfig.init();
-        Items.register();
-        FBlocks.register();
-        Entities.register();
-        PacketHandler.init();
+        WPOConfig.init(container);
+        WPODataComponents.register(modBus);
+        Items.register(modBus);
+        FBlocks.register(modBus);
+        Entities.register(modBus);
+        PacketHandler.init(modBus);
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            WPOClientHooks.init(modBus, container);
+        }
     }
     
 
     private void setup(final FMLCommonSetupEvent event) {
         event.enqueueWork(WPO::validateExtraStateInjection);
-    }
-
-    private void doClientStuff(final FMLClientSetupEvent event) {  
-        ClientEvents.setup(event);
-        event.enqueueWork(() -> ModList.get().getModContainerById(MOD_ID).ifPresent(container ->
-                container.registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
-                        () -> new ConfigScreenHandler.ConfigScreenFactory(WPOConfigScreen::new))));
     }
 
     private static void validateExtraStateInjection() {

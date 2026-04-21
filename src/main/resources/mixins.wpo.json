@@ -3,8 +3,7 @@
   "minVersion": "0.8",
   "package": "net.skds.wpo.mixins",
   "target": "@env(DEFAULT)",  
-  "refmap": "mixins.wpo.refmap.json",
-  "compatibilityLevel": "JAVA_17",
+  "compatibilityLevel": "JAVA_21",
   "mixins": [
 
     "other.BoatEntityMixin",
@@ -21,7 +20,8 @@
     "block.AbstractBlockStateMixin",
     "block.BlockMixin",
 
-    "item.GlassBottleItemMixin"
+    "item.GlassBottleItemMixin",
+    "item.BucketItemMixin"
 
   ],
   "client": [

@@ -4,8 +4,8 @@ import static net.skds.wpo.WPO.LOGGER;
 
 import java.util.Set;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Block;
-import net.minecraftforge.registries.ForgeRegistries;
 import net.skds.core.util.CustomBlockPars;
 
 public class ParsApplier {
@@ -25,7 +25,7 @@ public class ParsApplier {
 		long t0 = System.currentTimeMillis();
 		LOGGER.info("Cleaning blocks...");
 
-		ForgeRegistries.BLOCKS.getValues().forEach(block -> {
+		BuiltInRegistries.BLOCK.forEach(block -> {
 			CustomBlockPars.set(block, new CustomBlockPars());
 		});
 

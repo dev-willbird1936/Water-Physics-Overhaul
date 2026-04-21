@@ -12,10 +12,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.material.Fluids;
-import net.minecraftforge.event.level.ChunkDataEvent;
-import net.minecraftforge.event.level.ChunkEvent;
-import net.minecraftforge.event.level.ChunkWatchEvent;
-import net.minecraftforge.network.PacketDistributor;
+import net.neoforged.neoforge.event.level.ChunkDataEvent;
+import net.neoforged.neoforge.event.level.ChunkEvent;
+import net.neoforged.neoforge.event.level.ChunkWatchEvent;
 import net.skds.core.api.IWWSG;
 import net.skds.core.api.IWorldExtended;
 import net.skds.wpo.fluidphysics.WorldWorkSet;
@@ -124,7 +123,7 @@ public final class WPOFluidChunkStorage {
     }
 
     public static void sendChunkToTracking(LevelChunk chunk) {
-        PacketHandler.get().send(PacketDistributor.TRACKING_CHUNK.with(() -> chunk), createPacket(chunk));
+        PacketHandler.sendTrackingChunk((ServerLevel) chunk.getLevel(), chunk.getPos(), createPacket(chunk));
     }
 
     private static ChunkFluidDataPacket createPacket(LevelChunk chunk) {

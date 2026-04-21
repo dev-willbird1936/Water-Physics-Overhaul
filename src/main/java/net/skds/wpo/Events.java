@@ -2,15 +2,14 @@ package net.skds.wpo;
 
 import net.minecraft.world.level.Level;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraftforge.event.TagsUpdatedEvent;
-import net.minecraftforge.event.entity.player.FillBucketEvent;
-import net.minecraftforge.event.level.BlockEvent;
-import net.minecraftforge.event.level.ChunkDataEvent;
-import net.minecraftforge.event.level.ChunkEvent;
-import net.minecraftforge.event.level.ChunkWatchEvent;
-import net.minecraftforge.event.level.PistonEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.ChunkDataEvent;
+import net.neoforged.neoforge.event.level.ChunkEvent;
+import net.neoforged.neoforge.event.level.ChunkWatchEvent;
+import net.neoforged.neoforge.event.level.PistonEvent;
 import net.skds.core.api.IWWSG;
 import net.skds.core.events.OnWWSAttachEvent;
 import net.skds.core.events.SyncTasksHookEvent;
@@ -30,11 +29,6 @@ public class Events {
 	// public void attachCapability(AttachCapabilitiesEvent<Chunk> e) {
 	// new ChunkDataProvider().init(e);
 	// }
-
-	@SubscribeEvent
-	public void onBucketEvent(FillBucketEvent e) {
-		FFluidStatic.onBucketEvent(e);
-	}
 
 	@SubscribeEvent
 	public void onChunkDataLoad(ChunkDataEvent.Load e) {

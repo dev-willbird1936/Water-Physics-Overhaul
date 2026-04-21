@@ -2,12 +2,12 @@ package net.skds.wpo.fluidphysics;
 
 import java.util.*;
 
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.material.*;
-import net.minecraftforge.registries.ForgeRegistries;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
@@ -18,6 +18,7 @@ import net.minecraft.world.item.MobBucketItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemUtils;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.stats.Stats;
 import net.minecraft.tags.FluidTags;
@@ -40,15 +41,12 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.Level;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraftforge.common.SoundActions;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.event.entity.player.FillBucketEvent;
-import net.minecraftforge.event.level.BlockEvent;
-import net.minecraftforge.event.level.PistonEvent;
-import net.minecraftforge.eventbus.api.Event.Result;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
-import net.minecraftforge.fluids.capability.IFluidHandlerItem;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.common.SoundActions;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.PistonEvent;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 import net.skds.wpo.api.IWPOFluidPassage;
 import net.skds.wpo.api.WPOPassageDecision;
 import net.skds.wpo.WPOConfig;
@@ -711,33 +709,27 @@ public class FFluidStatic {
 
 	// ================= ITEMS ==================//
 
-	public static void onBucketEvent(FillBucketEvent e) {
-
+	public static void onBucketUse(Level w, Player p, InteractionHand hand,
+			CallbackInfoReturnable<InteractionResultHolder<ItemStack>> ci, ItemStack bucket) {
+		if (w.isClientSide) {
+			return;
+		}
 		MobBucketItem mobBucketItem = null;
-		ItemStack bucket = e.getEmptyBucket();
 		Item bu = bucket.getItem();
 		if (bu instanceof MobBucketItem) {
 			mobBucketItem = (MobBucketItem) bu;
 		}
-		Optional<IFluidHandlerItem> op = bucket.getCapability(ForgeCapabilities.FLUID_HANDLER_ITEM)
-				.resolve();
-		IFluidHandlerItem bh;
-		if (op.isPresent()) {
-			bh = op.get();
-		} else {
+		IFluidHandlerItem bh = bucket.getCapability(Capabilities.FluidHandler.ITEM);
+		if (bh == null) {
 			bh = new ExtendedFHIS(bucket, 1000);
-			// System.out.println("l;hhhhhhh " + bh);
 		}
 		Fluid f = bh.getFluidInTank(0).getFluid();
 		if (!(f instanceof FlowingFluid) && f != Fluids.EMPTY) {
 			return;
 		}
-		Player p = e.getEntity();
-		Level w = e.getLevel();
-		HitResult targ0 = e.getTarget();
+		BucketUseContext context = new BucketUseContext(w, p, bucket.copy(), ci);
 		HitResult targ = rayTrace(w, p,
 				f == Fluids.EMPTY ? ClipContext.Fluid.ANY : ClipContext.Fluid.NONE);
-		targ0 = targ;
 		if (targ.getType() != HitResult.Type.BLOCK) {
 			return;
 		}
@@ -767,24 +759,21 @@ public class FFluidStatic {
 			if (!(fluid instanceof FlowingFluid)) {
 				return;
 			}
-			if (targ0.getType() == HitResult.Type.BLOCK) {
-				BlockHitResult targB0 = (BlockHitResult) targ0;
-				FluidState fs0 = w.getFluidState(targB0.getBlockPos());
-				if (fs0.isSource()) {
-					return;
-				}
+			FluidState fs0 = w.getFluidState(targB.getBlockPos());
+			if (fs0.isSource()) {
+				return;
 			}
-			BucketFiller filler = new BucketFiller(w, fluid, bh, e);
+			BucketFiller filler = new BucketFiller(w, fluid, bh, context);
 			iterateFluidWay(WPOConfig.getMaxBucketDist(), pos, filler);
 
 		} else {
 			if (!f.isSame(fluid) && fluid != Fluids.EMPTY) {
-				e.setCanceled(true);
+				ci.setReturnValue(InteractionResultHolder.fail(bucket));
 				return;
 			}
-			BucketFlusher flusher = new BucketFlusher(w, f, bh, e);
+			BucketFlusher flusher = new BucketFlusher(w, f, bh, context);
 			if (iterateFluidWay(WPOConfig.getMaxBucketDist(), pos, flusher) && mobBucketItem != null) {
-				mobBucketItem.checkExtraContent(e.getEntity(), w, bucket, pos);
+				mobBucketItem.checkExtraContent(p, w, bucket, pos);
 			}
 		}
 	}
@@ -800,8 +789,7 @@ public class FFluidStatic {
 		float f5 = Mth.sin(-f * ((float) Math.PI / 180F));
 		float f6 = f3 * f4;
 		float f7 = f2 * f4;
-		var reachAttribute = player.getAttribute(net.minecraftforge.common.ForgeMod.BLOCK_REACH.get());
-		double d0 = reachAttribute != null ? reachAttribute.getValue() : 4.5D;
+		double d0 = player.blockInteractionRange();
 		Vec3 vector3d1 = vector3d.add((double) f6 * d0, (double) f5 * d0, (double) f7 * d0);
 		return worldIn.clip(
 				new ClipContext(vector3d, vector3d1, ClipContext.Block.OUTLINE, fluidMode, player));
@@ -917,6 +905,18 @@ public class FFluidStatic {
 		return soundevent;
 	}
 
+	private record BucketUseContext(Level world, Player player, ItemStack stack,
+			CallbackInfoReturnable<InteractionResultHolder<ItemStack>> ci) {
+
+		void succeed(ItemStack resultStack, SoundEvent soundevent) {
+			player.awardStat(Stats.ITEM_USED.get(stack.getItem()));
+			player.playSound(soundevent, 1.0F, 1.0F);
+			ci.setReturnValue(InteractionResultHolder.sidedSuccess(
+					ItemUtils.createFilledResult(stack, player, resultStack),
+					world.isClientSide()));
+		}
+	}
+
 	private static class BucketFiller implements IFluidActionIteratable {
 
 		int bucketLevels = WPOConfig.MAX_FLUID_LEVEL;
@@ -924,15 +924,15 @@ public class FFluidStatic {
 		boolean complete = false;
 		Level world;
 		Fluid fluid;
-		FillBucketEvent event;
+		BucketUseContext context;
 		IFluidHandlerItem bucket;
 		Long2ObjectLinkedOpenHashMap<BlockState> states = new Long2ObjectLinkedOpenHashMap<>();
 
-		BucketFiller(Level w, Fluid f, IFluidHandlerItem b, FillBucketEvent e) {
+		BucketFiller(Level w, Fluid f, IFluidHandlerItem b, BucketUseContext context) {
 			world = w;
 			fluid = f;
 			bucket = b;
-			event = e;
+			this.context = context;
 		}
 
 		@Override
@@ -979,16 +979,7 @@ public class FFluidStatic {
 		@Override
 		public void finish() {
 			fillStates(states, world);
-
-			event.setResult(Result.ALLOW);
-			Player p = event.getEntity();
-			Item item = bucket.getContainer().getItem();
-			p.awardStat(Stats.ITEM_USED.get(item));
-			SoundEvent soundevent = getBucketFillSound(fluid);
-			p.playSound(soundevent, 1.0F, 1.0F);
-			if (!p.getAbilities().instabuild) {
-				event.setFilledBucket(new ItemStack(fluid.getBucket()));
-			}
+			context.succeed(new ItemStack(fluid.getBucket()), getBucketFillSound(fluid));
 		}
 	}
 
@@ -1068,15 +1059,15 @@ public class FFluidStatic {
 		boolean complete = false;
 		Level world;
 		Fluid fluid;
-		FillBucketEvent event;
+		BucketUseContext context;
 		IFluidHandlerItem bucket;
 		Long2ObjectLinkedOpenHashMap<BlockState> states = new Long2ObjectLinkedOpenHashMap<>();
 
-		BucketFlusher(Level w, Fluid f, IFluidHandlerItem b, FillBucketEvent e) {
+		BucketFlusher(Level w, Fluid f, IFluidHandlerItem b, BucketUseContext context) {
 			world = w;
 			fluid = f;
 			bucket = b;
-			event = e;
+			this.context = context;
 			sl = bucket.getFluidInTank(0).getAmount() / FFluidStatic.FCONST;
 			fluid = bucket.getFluidInTank(0).getFluid();
 		}
@@ -1123,16 +1114,7 @@ public class FFluidStatic {
 		@Override
 		public void finish() {
 			fillStates(states, world);
-
-			event.setResult(Result.ALLOW);
-			Player p = event.getEntity();
-			Item item = bucket.getContainer().getItem();
-			p.awardStat(Stats.ITEM_USED.get(item));
-			SoundEvent soundevent = getBucketEmptySound(fluid);
-			p.playSound(soundevent, 1.0F, 1.0F);
-			if (!p.getAbilities().instabuild) {
-				event.setFilledBucket(new ItemStack(Items.BUCKET));
-			}
+			context.succeed(new ItemStack(Items.BUCKET), getBucketEmptySound(fluid));
 		}
 	}
 
@@ -1149,7 +1131,7 @@ public class FFluidStatic {
 		BlockState obs;
 
 		FluidDisplacer(Level w, BlockEvent.EntityPlaceEvent e) {
-			obs = e.getBlockSnapshot().getReplacedBlock();
+			obs = e.getBlockSnapshot().getState();
 			FluidState ofs = obs.getFluidState();
 
 			fluid = ofs.getType();
@@ -1216,7 +1198,6 @@ public class FFluidStatic {
 		@Override
 		public void finish() {
 			fillStates(states, world);
-			event.setResult(Result.ALLOW);
 		}
 
 		@Override
@@ -1403,7 +1384,6 @@ public class FFluidStatic {
 		@Override
 		public void finish() {
 			fillStates(states, world);
-			event.setResult(Result.ALLOW);
 			// System.out.println("u");
 		}
 
@@ -1461,7 +1441,7 @@ public class FFluidStatic {
 	public static void onBlockPlace(BlockEvent.EntityPlaceEvent e) {
 		Level w = (Level) e.getLevel();
 		BlockPos pos = e.getPos();
-		BlockState oldState = e.getBlockSnapshot().getReplacedBlock();
+		BlockState oldState = e.getBlockSnapshot().getState();
 		FluidState oldFluidState = oldState.getFluidState();
 		Fluid oldFluid = oldFluidState.getType();
 		BlockState newState = e.getPlacedBlock();
@@ -1472,8 +1452,12 @@ public class FFluidStatic {
 		}
 		// frost walker replaces water with water (idk why) => delete water (since it is created again from melting ice)
 		// idk when FrostedIceBlock is placed...
-		int frostWalkerLevel = EnchantmentHelper.getEnchantmentLevel(Enchantments.FROST_WALKER, (LivingEntity) e.getEntity());
-		if (frostWalkerLevel > 0 && newBlock == Blocks.WATER && newState.getFluidState().is(FluidTags.WATER)) {
+		if (e.getEntity() instanceof LivingEntity living
+				&& EnchantmentHelper.getEnchantmentLevel(
+						w.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.FROST_WALKER),
+						living) > 0
+				&& newBlock == Blocks.WATER
+				&& newState.getFluidState().is(FluidTags.WATER)) {
 			return; // does not create water since frost walker does not trigger on partially filled water blocks
 		}
 		// if sponge => do nothing (deletes water)

@@ -1,25 +1,12 @@
 import java.util.Properties
 
-buildscript {
-    repositories {
-        maven {
-            name = 'Sponge'
-            url = 'https://repo.spongepowered.org/repository/maven-public/'
-        }
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'org.spongepowered:mixingradle:0.7.+'
-    }
-}
-
 plugins {
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'java-library'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.141'
 }
 
-apply plugin: 'org.spongepowered.mixin'
-
-def selectedMcVersion = (findProperty('mcVersion') ?: findProperty('default_mc_version') ?: '1.20.1').toString()
+def selectedMcVersion = (findProperty('mcVersion') ?: findProperty('default_mc_version') ?: '1.21.1').toString()
 def versionPropsFile = file("versions/${selectedMcVersion}.properties")
 if (!versionPropsFile.isFile()) {
     throw new GradleException("Missing version config for ${selectedMcVersion}: ${versionPropsFile}")
@@ -42,74 +29,68 @@ base {
     archivesName = "water_physics_overhaul-${minecraft_version}"
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-minecraft {
-    mappings channel: mapping_channel, version: mapping_version
-    copyIdeResources = true
+neoForge {
+    version = neo_version
 
     runs {
-        configureEach {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                wpo {
-                    source sourceSets.main
-                }
-                skds_core {
-                    source project(':skds_core').sourceSets.main
-                }
-            }
-        }
-
         client {
-            property 'forge.enabledGameTestNamespaces', 'wpo'
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'wpo'
         }
 
         server {
-            property 'forge.enabledGameTestNamespaces', 'wpo'
-            args '--nogui'
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'wpo'
         }
 
         gameTestServer {
-            property 'forge.enabledGameTestNamespaces', 'wpo'
+            type = 'gameTestServer'
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'wpo'
+        }
+
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        wpo {
+            sourceSet(sourceSets.main)
+        }
+        skds_core {
+            sourceSet(project(':skds_core').sourceSets.main)
         }
     }
 }
 
 repositories {
-    maven {
-        name = 'Sponge'
-        url = 'https://repo.spongepowered.org/repository/maven-public/'
-    }
+    mavenCentral()
 }
 
 dependencies {
-    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
     implementation project(':skds_core')
-    compileOnly 'org.spongepowered:mixin:0.8.5'
-    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
 
 tasks.named('processResources', ProcessResources).configure {
     def replaceProperties = [
-        minecraft_version: minecraft_version,
+        minecraft_version      : minecraft_version,
         minecraft_version_range: minecraft_version_range,
-        forge_version: forge_version,
-        forge_version_range: forge_version_range,
-        loader_version_range: loader_version_range,
-        mod_id: 'wpo',
-        mod_name: 'Water Physics Overhaul',
-        mod_version: version,
-        mod_license: 'All Rights Reserved',
-        mod_authors: project.findProperty('project_public_author'),
-        mod_description: 'Dynamic fluid flow overhaul for Forge 1.20.1. This workspace currently ports the fluid-engine vertical slice first.',
+        neo_version            : neo_version,
+        loader_version_range   : loader_version_range,
+        mod_id                 : 'wpo',
+        mod_name               : 'Water Physics Overhaul',
+        mod_version            : version,
+        mod_license            : 'All Rights Reserved',
+        mod_authors            : project.findProperty('project_public_author'),
+        mod_description        : 'Dynamic fluid flow overhaul for NeoForge 1.21.1.',
         skds_core_version_range: "[${skds_mod_version},)"
     ]
     inputs.properties replaceProperties
-    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+    filesMatching(['META-INF/neoforge.mods.toml', 'pack.mcmeta']) {
         expand replaceProperties
     }
 }
@@ -117,16 +98,15 @@ tasks.named('processResources', ProcessResources).configure {
 tasks.named('jar', Jar).configure {
     manifest {
         attributes([
-            'MixinConfigs': 'mixins.wpo.json',
-            'Specification-Title': 'wpo',
-            'Specification-Vendor': project.findProperty('project_public_vendor'),
-            'Specification-Version': '1',
-            'Implementation-Title': project.name,
+            'MixinConfigs'          : 'mixins.wpo.json',
+            'Specification-Title'   : 'wpo',
+            'Specification-Vendor'  : project.findProperty('project_public_vendor'),
+            'Specification-Version' : '1',
+            'Implementation-Title'  : project.name,
             'Implementation-Version': project.version,
-            'Implementation-Vendor': project.findProperty('project_public_vendor')
+            'Implementation-Vendor' : project.findProperty('project_public_vendor')
         ])
     }
-    finalizedBy 'reobfJar'
 }
 
 tasks.register('stageRelease', Copy) {
@@ -136,8 +116,13 @@ tasks.register('stageRelease', Copy) {
     into releaseOutputDir
 }
 
-mixin {
-    add sourceSets.main, 'mixins.wpo.refmap.json'
-    config 'mixins.wpo.json'
-    config 'mixins.skds_core.json'
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
 }

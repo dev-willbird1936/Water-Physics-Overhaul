@@ -1,55 +1,48 @@
 package net.skds.wpo.fluiddata;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.skds.wpo.WPO;
 
-import java.util.function.Supplier;
+public record ChunkFluidDataPacket(ResourceLocation dimensionId, int chunkX, int chunkZ, CompoundTag data)
+    implements CustomPacketPayload {
 
-public final class ChunkFluidDataPacket {
+    public static final Type<ChunkFluidDataPacket> TYPE =
+        new Type<>(ResourceLocation.fromNamespaceAndPath(WPO.MOD_ID, "chunk_fluid_data"));
 
-    private final ResourceLocation dimensionId;
-    private final int chunkX;
-    private final int chunkZ;
-    private final CompoundTag data;
+    public static final StreamCodec<RegistryFriendlyByteBuf, ChunkFluidDataPacket> STREAM_CODEC =
+        StreamCodec.composite(
+            ResourceLocation.STREAM_CODEC,
+            ChunkFluidDataPacket::dimensionId,
+            ByteBufCodecs.VAR_INT,
+            ChunkFluidDataPacket::chunkX,
+            ByteBufCodecs.VAR_INT,
+            ChunkFluidDataPacket::chunkZ,
+            ByteBufCodecs.COMPOUND_TAG,
+            ChunkFluidDataPacket::data,
+            ChunkFluidDataPacket::new
+        );
 
     public ChunkFluidDataPacket(ResourceLocation dimensionId, ChunkPos chunkPos, CompoundTag data) {
-        this.dimensionId = dimensionId;
-        this.chunkX = chunkPos.x;
-        this.chunkZ = chunkPos.z;
-        this.data = data;
+        this(dimensionId, chunkPos.x, chunkPos.z, data);
     }
 
-    public static void encode(ChunkFluidDataPacket packet, FriendlyByteBuf buffer) {
-        buffer.writeResourceLocation(packet.dimensionId);
-        buffer.writeInt(packet.chunkX);
-        buffer.writeInt(packet.chunkZ);
-        buffer.writeNbt(packet.data);
+    public ChunkPos chunkPos() {
+        return new ChunkPos(chunkX, chunkZ);
     }
 
-    public static ChunkFluidDataPacket decode(FriendlyByteBuf buffer) {
-        ResourceLocation dimensionId = buffer.readResourceLocation();
-        int chunkX = buffer.readInt();
-        int chunkZ = buffer.readInt();
-        CompoundTag data = buffer.readNbt();
-        return new ChunkFluidDataPacket(dimensionId, new ChunkPos(chunkX, chunkZ), data == null ? new CompoundTag() : data);
+    @Override
+    public Type<ChunkFluidDataPacket> type() {
+        return TYPE;
     }
 
-    public static void handle(ChunkFluidDataPacket packet, Supplier<NetworkEvent.Context> contextSupplier) {
-        NetworkEvent.Context context = contextSupplier.get();
-        if (!context.getDirection().getReceptionSide().isClient()) {
-            context.setPacketHandled(true);
-            return;
-        }
-        context.enqueueWork(() -> {
-            Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.level != null) {
-                WPOFluidChunkStorage.applyClientSync(packet.dimensionId, new ChunkPos(packet.chunkX, packet.chunkZ), packet.data);
-            }
-        });
-        context.setPacketHandled(true);
+    public static void handle(ChunkFluidDataPacket packet, IPayloadContext context) {
+        WPOFluidChunkStorage.applyClientSync(packet.dimensionId, packet.chunkPos(), packet.data);
     }
 }

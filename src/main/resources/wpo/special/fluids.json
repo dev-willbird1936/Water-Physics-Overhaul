@@ -4,7 +4,7 @@
 			"minecraft:repeater",
 			"minecraft:snow",
 			"minecraft:comparator",
-			"#minecraft:carpets",
+        "#minecraft:wool_carpets",
 			"#minecraft:leaves"
 		],
 		"defaultNoPass": [

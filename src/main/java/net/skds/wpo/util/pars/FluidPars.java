@@ -9,10 +9,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.registries.ForgeRegistries;
 
 public class FluidPars {
 	public final int isPassable;
@@ -54,7 +54,8 @@ public class FluidPars {
 			if (dbfJ.size() > 0) {
 				dbfJ.forEach(jse -> {
 					String id = jse.getAsString();
-					Fluid fluid = ForgeRegistries.FLUIDS.getValue(new ResourceLocation(id));
+					ResourceLocation fluidId = ResourceLocation.parse(id);
+					Fluid fluid = BuiltInRegistries.FLUID.containsKey(fluidId) ? BuiltInRegistries.FLUID.get(fluidId) : null;
 					if (fluid != null && fluid != Fluids.EMPTY) {
 						dby.add(fluid);
 					} else {

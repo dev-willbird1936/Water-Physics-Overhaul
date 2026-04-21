@@ -53,7 +53,7 @@ public abstract class AbstractBlockStateMixin {
 	public void isRandomlyTickingM(CallbackInfoReturnable<Boolean> ci) {
 	}
 
-	@Inject(method = "neighborChanged", at = @At(value = "HEAD"), cancellable = false)
+	@Inject(method = "handleNeighborChanged", at = @At(value = "HEAD"), cancellable = false)
 	public void neighborChangedM(Level worldIn, BlockPos posIn, Block blockIn, BlockPos fromPosIn, boolean isMoving,
 			CallbackInfo ci) {
 		// super.neighborChanged(worldIn, posIn, blockIn, fromPosIn, isMoving);

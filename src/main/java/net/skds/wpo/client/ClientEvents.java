@@ -1,12 +1,11 @@
 package net.skds.wpo.client;
 
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.skds.wpo.WPO;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 
-@Mod.EventBusSubscriber(modid = WPO.MOD_ID, value = Dist.CLIENT, bus= Mod.EventBusSubscriber.Bus.MOD)
-public class ClientEvents {
+public final class ClientEvents {
+
+    private ClientEvents() {
+    }
 
 	public static void setup(final FMLClientSetupEvent event) {
 	}

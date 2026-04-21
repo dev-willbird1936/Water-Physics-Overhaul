@@ -16,8 +16,6 @@ import static net.skds.wpo.WPO.LOGGER;
 
 @Mixin(value = { LivingEntity.class })
 public abstract class LivingEntityMixin extends Entity {
-    @Shadow protected abstract void defineSynchedData();
-
     @Shadow protected abstract float getWaterSlowDown();
 
     @Shadow protected abstract float getFrictionInfluencedSpeed(float p_21331_);

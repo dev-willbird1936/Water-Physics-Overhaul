@@ -1,7 +1,7 @@
 package net.skds.wpo.fluiddata;
 
-import com.google.common.collect.ImmutableMap;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
@@ -9,7 +9,6 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.StateHolder;
 import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraftforge.registries.ForgeRegistries;
 import net.skds.wpo.WPO;
 
 import java.util.Map;
@@ -28,10 +27,8 @@ public final class FluidStateSerializers {
             return Fluids.EMPTY.defaultFluidState();
         }
 
-        Fluid fluid = ForgeRegistries.FLUIDS.getValue(new ResourceLocation(tag.getString(NAME_TAG)));
-        if (fluid == null) {
-            return Fluids.EMPTY.defaultFluidState();
-        }
+        ResourceLocation id = ResourceLocation.parse(tag.getString(NAME_TAG));
+        Fluid fluid = BuiltInRegistries.FLUID.containsKey(id) ? BuiltInRegistries.FLUID.get(id) : Fluids.EMPTY;
 
         FluidState fluidState = fluid.defaultFluidState();
         if (!tag.contains(PROPERTIES_TAG, CompoundTag.TAG_COMPOUND)) {
@@ -51,13 +48,13 @@ public final class FluidStateSerializers {
 
     public static CompoundTag writeFluidState(FluidState fluidState) {
         CompoundTag tag = new CompoundTag();
-        ResourceLocation key = ForgeRegistries.FLUIDS.getKey(fluidState.getType());
+        ResourceLocation key = BuiltInRegistries.FLUID.getKey(fluidState.getType());
         if (key == null) {
-            key = ForgeRegistries.FLUIDS.getKey(Fluids.EMPTY);
+            key = BuiltInRegistries.FLUID.getKey(Fluids.EMPTY);
         }
         tag.putString(NAME_TAG, key.toString());
 
-        ImmutableMap<Property<?>, Comparable<?>> values = fluidState.getValues();
+        Map<Property<?>, Comparable<?>> values = fluidState.getValues();
         if (!values.isEmpty()) {
             CompoundTag propertyTag = new CompoundTag();
             for (Map.Entry<Property<?>, Comparable<?>> entry : values.entrySet()) {

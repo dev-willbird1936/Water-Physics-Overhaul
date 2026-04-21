@@ -1,48 +1,36 @@
 package net.skds.wpo.network;
 
-import java.util.function.Supplier;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.BlockPos;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.skds.wpo.WPO;
 
-public class DebugPacket {
+public record DebugPacket(BlockPos pos) implements CustomPacketPayload {
 
-	private BlockPos pos;
+    public static final Type<DebugPacket> TYPE =
+        new Type<>(ResourceLocation.fromNamespaceAndPath(WPO.MOD_ID, "debug"));
 
-	public DebugPacket(BlockPos pos) {
-		this.pos = pos;
-	}
+    public static final StreamCodec<RegistryFriendlyByteBuf, DebugPacket> STREAM_CODEC =
+        StreamCodec.composite(BlockPos.STREAM_CODEC, DebugPacket::pos, DebugPacket::new);
 
-	public DebugPacket(FriendlyByteBuf buffer) {
-		this.pos = buffer.readBlockPos();
-	}
+    @Override
+    public Type<DebugPacket> type() {
+        return TYPE;
+    }
 
-	void encoder(FriendlyByteBuf buffer) {
-		buffer.writeBlockPos(pos);
-	}
-
-	public static DebugPacket decoder(FriendlyByteBuf buffer) {
-		return new DebugPacket(buffer);
-	}
-
-	void handle(Supplier<NetworkEvent.Context> contextSupplier) {
-		NetworkEvent.Context context = contextSupplier.get();
-		if (!context.getDirection().getReceptionSide().isClient()) {
-			context.setPacketHandled(true);
-			return;
-		}
-		context.enqueueWork(() -> {
-			Minecraft minecraft = Minecraft.getInstance();
-			if (minecraft.player == null) {
-				return;
-			}
-			ClientLevel w = (ClientLevel) minecraft.player.level();
-			w.addParticle(ParticleTypes.FLAME, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 0, 0.06, 0);
-		});
-		context.setPacketHandled(true);
-	}
+    public static void handle(DebugPacket packet, IPayloadContext context) {
+        context.player().level().addParticle(
+            ParticleTypes.FLAME,
+            packet.pos.getX() + 0.5,
+            packet.pos.getY() + 0.5,
+            packet.pos.getZ() + 0.5,
+            0.0,
+            0.06,
+            0.0
+        );
+    }
 }

@@ -25,13 +25,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.stream.JsonReader;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.registries.*;
-import net.minecraftforge.registries.tags.ITag;
-import net.minecraftforge.registries.tags.ITagManager;
 import net.skds.wpo.WPO;
 import net.skds.wpo.util.pars.ParsApplier.ParsGroup;
 
@@ -178,22 +178,10 @@ public class JsonConfigReader {
 		Set<Block> blocks = new HashSet<>();
 		for (String id : list) {
 			if (id.charAt(0) == '#') {
-				id = id.substring(1);
-				ITagManager<Block> tagManager = ForgeRegistries.BLOCKS.tags();
-				if (tagManager == null) {
-					LOGGER.error("Forge registry \"" + ForgeRegistries.BLOCKS + "\" does not support tags!");
-					continue;
-				}
-				TagKey<Block> tagKey = tagManager.createTagKey(new ResourceLocation(id));
-				ITag<Block> tag = tagManager.getTag(tagKey);
-//				if (tag == null) {
-//					LOGGER.error("Block tag \"" + id + "\" does not exist!");
-//					continue;
-//				}
-				blocks.addAll(tag.stream().toList());
+				addBlocksFromTag(blocks, id.substring(1));
 			} else {
-				Block block = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(id));
-				if (block != null && block != Blocks.AIR) {
+				Block block = getBlock(id);
+				if (block != Blocks.AIR) {
 					blocks.add(block);
 				} else {
 					LOGGER.error("Block \"" + id + "\" does not exist!");
@@ -208,22 +196,10 @@ public class JsonConfigReader {
 		for (JsonElement je : arr) {
 			String id = je.getAsString();
 			if (id.charAt(0) == '#') {
-				id = id.substring(1);
-				ITagManager<Block> tagManager = ForgeRegistries.BLOCKS.tags();
-				if (tagManager == null) {
-					LOGGER.error("Forge registry \"" + ForgeRegistries.BLOCKS + "\" does not support tags!");
-					continue;
-				}
-				TagKey<Block> tagKey = tagManager.createTagKey(new ResourceLocation(id));
-				ITag<Block> tag = tagManager.getTag(tagKey);
-//				if (tag == null) {
-//					LOGGER.error("Block tag \"" + id + "\" does not exist!");
-//					continue;
-//				}
-				blocks.addAll(tag.stream().toList());
+				addBlocksFromTag(blocks, id.substring(1));
 			} else {
-				Block block = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(id));
-				if (block != null && block != Blocks.AIR) {
+				Block block = getBlock(id);
+				if (block != Blocks.AIR) {
 					blocks.add(block);
 				} else {
 					LOGGER.error("Block \"" + id + "\" does not exist!");
@@ -231,5 +207,30 @@ public class JsonConfigReader {
 			}
 		}
 		return blocks;
+	}
+
+	private static void addBlocksFromTag(Set<Block> blocks, String id) {
+		String resolvedId = remapLegacyBlockTag(id);
+		TagKey<Block> tagKey = TagKey.create(Registries.BLOCK, ResourceLocation.parse(resolvedId));
+		var tag = BuiltInRegistries.BLOCK.getTag(tagKey);
+		if (tag.isEmpty()) {
+			LOGGER.error("Block tag \"" + id + "\" does not exist!");
+			return;
+		}
+		for (Holder<Block> holder : tag.get()) {
+			blocks.add(holder.value());
+		}
+	}
+
+	private static Block getBlock(String id) {
+		ResourceLocation blockId = ResourceLocation.parse(id);
+		return BuiltInRegistries.BLOCK.containsKey(blockId) ? BuiltInRegistries.BLOCK.get(blockId) : Blocks.AIR;
+	}
+
+	private static String remapLegacyBlockTag(String id) {
+		if ("minecraft:carpets".equals(id)) {
+			return "minecraft:wool_carpets";
+		}
+		return id;
 	}
 }

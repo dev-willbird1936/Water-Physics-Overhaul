@@ -1,37 +1,37 @@
 package net.skds.wpo.network;
 
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.network.NetworkDirection;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.simple.SimpleChannel;
+import net.minecraft.world.level.ChunkPos;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.skds.wpo.WPO;
 import net.skds.wpo.fluiddata.ChunkFluidDataPacket;
 
-import java.util.Optional;
+public final class PacketHandler {
+    private static final String PROTOCOL_VERSION = "1";
 
-public class PacketHandler {
-	private static final String PROTOCOL_VERSION = "1";
-	private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(new ResourceLocation(WPO.MOD_ID, "network"), () -> PROTOCOL_VERSION, v -> true, v -> true);
+    private PacketHandler() {
+    }
 
-	public static void send(Player target, Object message) {
-        CHANNEL.send(PacketDistributor.PLAYER.with(() -> (ServerPlayer)target), message);
-	}
+    public static void init(IEventBus modBus) {
+        modBus.addListener(PacketHandler::registerPayloads);
+    }
 
-	public static SimpleChannel get() {
-		return CHANNEL;
-	}
+    public static void send(ServerPlayer target, CustomPacketPayload message) {
+        PacketDistributor.sendToPlayer(target, message);
+    }
 
-	public static void init() {
-		int id = 0;
-		CHANNEL.registerMessage(id++, DebugPacket.class, DebugPacket::encoder, DebugPacket::decoder, DebugPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-		CHANNEL.registerMessage(id++, ChunkFluidDataPacket.class, ChunkFluidDataPacket::encode, ChunkFluidDataPacket::decode, ChunkFluidDataPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-	}
+    public static void sendTrackingChunk(ServerLevel level, ChunkPos chunkPos, CustomPacketPayload message) {
+        PacketDistributor.sendToPlayersTrackingChunk(level, chunkPos, message);
+    }
 
-	public static void sendTrackingChunk(LevelChunk chunk, Object message) {
-		CHANNEL.send(PacketDistributor.TRACKING_CHUNK.with(() -> chunk), message);
-	}
+    private static void registerPayloads(RegisterPayloadHandlersEvent event) {
+        PayloadRegistrar registrar = event.registrar(PROTOCOL_VERSION);
+        registrar.playToClient(DebugPacket.TYPE, DebugPacket.STREAM_CODEC, DebugPacket::handle);
+        registrar.playToClient(ChunkFluidDataPacket.TYPE, ChunkFluidDataPacket.STREAM_CODEC, ChunkFluidDataPacket::handle);
+    }
 }

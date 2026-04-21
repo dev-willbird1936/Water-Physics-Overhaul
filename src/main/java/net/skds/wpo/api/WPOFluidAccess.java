@@ -113,7 +113,7 @@ public final class WPOFluidAccess {
             return true;
         }
         if (state.getBlock() instanceof LiquidBlockContainer liquidBlockContainer) {
-            return liquidBlockContainer.canPlaceLiquid(level, pos, state, fluid);
+            return liquidBlockContainer.canPlaceLiquid(null, level, pos, state, fluid);
         }
         return state.canBeReplaced(fluid);
     }
